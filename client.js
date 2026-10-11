@@ -688,13 +688,24 @@ window.__ModuleLoader__.load({
         }).catch(() => {});
         void refreshUpdateState();
         ctx.effect(() => {
-          const timer = setInterval(() => {
+          /* The Host starts its first registry check asynchronously when it activates, so
+             the single read at mount can beat it and see "no update" — and the next read
+             would be a whole polling period away. These quick retries close that window. */
+          const warmups = [3000, 10000, 30000].map((delayMs) => {
+            const timer = setTimeout(() => {
+              void refreshUpdateState();
+            }, delayMs);
+            timer.unref?.();
+            return timer;
+          });
+          const interval = setInterval(() => {
             void refreshUpdateState();
           }, UPDATE_POLL_MS);
           /* Maintenance polling must never hold a process open; browsers have no unref. */
-          timer.unref?.();
+          interval.unref?.();
           return () => {
-            clearInterval(timer);
+            for (const timer of warmups) clearTimeout(timer);
+            clearInterval(interval);
           };
         }, "session-delete: update polling");
       }

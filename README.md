@@ -1,6 +1,15 @@
 # dsh-session-remove
 
+**Stop and permanently delete sessions from the DeepSeek Harness sidebar — plus a notice when a new release is out.**
 **给 DeepSeek Harness 侧栏的会话菜单补上「停止」与「删除」，并在有新版本时提示更新。**
+
+[中文](#中文) · [English](#english)
+
+---
+
+<a id="中文"></a>
+
+## 中文
 
 DSH 的会话行菜单只有 **重命名 / 分叉 / 归档** —— 归档只是把会话藏起来，日志一个字节都没少；
 而想停掉一个会话的工作，你得先打开它、再按停止。这个插件把这两件事都放回你最常点的位置
@@ -13,9 +22,7 @@ DSH 的会话行菜单只有 **重命名 / 分叉 / 归档** —— 归档只是
 
 安装后不需要重启 DSH，也不需要刷新页面。
 
----
-
-## 为什么不是又一个 DOM 补丁
+### 为什么不是又一个 DOM 补丁
 
 同类插件普遍靠注入 DOM 或沿 React fiber 取行数据来塞菜单项，核心 UI 一改就可能失效。
 本插件走的是官方开放的扩展点：
@@ -29,7 +36,7 @@ DSH 的会话行菜单只有 **重命名 / 分叉 / 归档** —— 归档只是
 - 只删能自证身份的目录：日志路径由持久化后端的 `locate()` 给出，并要求 `basename(dir) === sessionId`，
   否则直接拒绝而不是猜。
 
-## 安装
+### 安装
 
 ```sh
 # 桌面版：侧栏 → 插件 → 添加插件 → 填包名
@@ -42,11 +49,11 @@ dsh plugin --profile web add dsh-session-remove
 > **中国用户注意**：如果你的 npm 默认源是 `registry.npmmirror.com`，新发布的包在镜像上可能有
 > **同步延迟**。若安装时报「`declares no dsh.bundle`」，请在安装对话框里把**安装源**改成
 > **npm 官方源**，或改用 tarball 地址：
-> `https://registry.npmjs.org/dsh-session-remove/-/dsh-session-remove-1.0.0.tgz`
+> `https://registry.npmjs.org/dsh-session-remove/-/dsh-session-remove-<版本号>.tgz`
 
 升级：本插件带更新提示（见下），也可以在插件页卸载后重新安装。
 
-## 用法
+### 用法
 
 鼠标移到侧栏任意会话行 → 点 **⋯**：
 
@@ -60,7 +67,7 @@ dsh plugin --profile web add dsh-session-remove
 
 **删除**遇到仍在跑的工作时，弹窗会说明原因并多给一个 **停止并删除** 按钮，一步完成。
 
-## 删除的是什么
+### 删除的是什么
 
 | 位置 | 内容 |
 |---|---|
@@ -71,7 +78,7 @@ dsh plugin --profile web add dsh-session-remove
 
 搜索索引不需要额外处理：它按持久化列表对账，会话从列表消失即被清理。
 
-## 安全边界
+### 安全边界
 
 | 情况 | 行为 |
 |---|---|
@@ -94,7 +101,7 @@ dsh plugin --profile web add dsh-session-remove
 > 删除**当前正在查看**的会话后，主区域会自动回到空状态（与官方归档当前会话的行为一致），
 > 不会停在已经不存在的旧页面。
 
-## 更新提示
+### 更新提示
 
 插件会定期问一次注册表（默认 npm 官方源，失败回退 npmmirror）自己是不是最新版。
 **只提示，不静默替换**：右下角出现一条可关闭的提示，点「更新」才通过 profile 自己的插件管理器
@@ -102,7 +109,7 @@ dsh plugin --profile web add dsh-session-remove
 
 包名取自自身的 `package.json`，默认即可工作；只有把包部署成别名时才需要覆盖 `updatePackageName`。
 
-## 工作原理
+### 工作原理
 
 | 半边 | 文件 | 职责 |
 |---|---|---|
@@ -111,13 +118,13 @@ dsh plugin --profile web add dsh-session-remove
 
 浏览器半与宿主半同源通信，凭据由浏览器会话自动携带。
 
-## 兼容性
+### 兼容性
 
 - 实测 DSH **0.2.0-rc.2**（DeepSeek Harness Desktop）
 - 需要组合里存在 `connection` / `sessionPersistence` / `workspaceRegistry`（Web profile 默认满足）
 - 零依赖、零构建
 
-## 排查
+### 排查
 
 插件会写一行/次操作到 `$DSH_HOME/plugin-session-remove.log`：
 
@@ -135,7 +142,7 @@ refused session-…: session-held
 - `refused <id>: <code>` → 宿主拒绝了这次操作，代码含义见「安全边界」
 - 安装时报 `declares no dsh.bundle` → 见「安装」里的镜像同步说明
 
-## 已知限制
+### 已知限制
 
 - **删除不可恢复**：没有回收站，也没有撤销。
 - 附件是内容寻址去重的，不做按会话回收。
@@ -143,9 +150,180 @@ refused session-…: session-held
 - 「停止」会丢弃排队中的输入，这是它所复用的官方停止路径的语义。
 - 更新需要重启才生效；旧版本的宿主模块会一直留在内存里直到重启。
 
-## 开发
+### 开发
 
 架构说明、配置项、测试与发布流程见 [DEVELOPING.md](https://github.com/BG0EXM/dsh-session-remove/blob/main/DEVELOPING.md)。
+
+---
+
+<a id="english"></a>
+
+## English
+
+DeepSeek Harness's session row menu only offers **Rename / Fork / Archive** — archiving hides a
+session but keeps every byte on disk, and stopping a session's work means opening it first and
+pressing Stop. This plugin puts both back where you already click: the session row's `⋯` menu.
+
+```
+⋯ menu → Stop Session…     cancels the running turn, subagents, background jobs and reminders
+       → Delete Session…   permanently removes that session's local data (no undo)
+```
+
+No DSH restart and no page reload needed after installing.
+
+### Why not another DOM patch
+
+Comparable plugins inject DOM nodes or walk React fibers to add a menu row, so a change to the
+core UI can break them. This one uses open extension points only:
+
+- the row registers into the official slot **`sidebar.workspaces.session.menu.item`** —
+  Pin / Rename / Fork / Archive are registered entries in that same slot, so a plugin row is
+  ordered by its own `order`;
+- stopping goes through the official **`workspace/session-stop`** admission
+  (`ctx.workspaceRegistry.stopSessionActivity()`), answered by `dsh-agent` / `dsh-subagent` /
+  `dsh-jobs` / `dsh-schedule` for the turn, subagents, background jobs and reminders;
+- deleting uses the public **`ctx.workspaceRegistry`** and **`storageDomain`** APIs — it never
+  shells out to `rm`;
+- the deletion emits the official **`api-session/removed`** event (the one the Session controller
+  itself emits when a live Session is disposed), so the row disappears on the spot;
+- only a directory that can prove its identity is removed: the log path comes from the persistence
+  backend's `locate()`, and `basename(dir) === sessionId` must hold, or the plugin refuses instead
+  of guessing.
+
+### Install
+
+```sh
+# Desktop: sidebar → Plugins → Add plugin → enter the package name
+dsh-session-remove
+
+# Other profiles (web / tui / custom)
+dsh plugin --profile web add dsh-session-remove
+```
+
+> **Behind the npmmirror registry?** A freshly published package can lag on the mirror. If the
+> install refuses with `declares no dsh.bundle`, switch **Install source** to the official npm
+> registry in the dialog, or install the tarball URL
+> `https://registry.npmjs.org/dsh-session-remove/-/dsh-session-remove-<version>.tgz`.
+
+Upgrading: this plugin offers an update notice (below), or uninstall and reinstall in the Plugins
+page.
+
+### Usage
+
+Hover any session row in the sidebar → click **⋯**:
+
+| Menu row | What it does |
+|---|---|
+| **Stop Session…** | cancels the running turn and stops that session's subagents, background jobs and reminders |
+| **Delete Session…** | permanently removes that session's local data |
+
+**One thing to know about stopping**: this is the same path archive uses
+(`workspace/session-stop`), and it **discards queued input** (the in-conversation stop button keeps
+it). The confirmation dialog says so.
+
+When a **delete** meets running work, the dialog explains why and offers a **Stop and delete**
+button that does both in one step.
+
+### What gets deleted
+
+| Location | Content |
+|---|---|
+| `$DSH_HOME/sessions/<project>/<session-id>/` | the session log (`session.v4.jsonl.zstd`) and its write lease — the whole directory |
+| the `session_projcache` storage domain | that session's projection checkpoint record |
+| `$DSH_HOME/storages/workspace.json` | workspace membership, pin and archive entries |
+| the page | the `api-session/removed` event removes the row without a reload |
+
+The search index needs no help: it reconciles against the persistence listing, so a session that
+leaves that listing leaves the index too.
+
+### Safety boundaries
+
+| Situation | Behaviour |
+|---|---|
+| A turn / subagent / background job / reminder is still running | refused, with a **Stop and delete** action |
+| The stop has not settled within the bounded wait | refused, asking you to retry in a moment |
+| The session is still held by this process | released first, then deleted (below) |
+
+**Why a held session is released first**: a live write handle would flush the log back into
+existence right after we removed it. The registry's archive flow relies on the Session's own owner
+to release it, and the seam gives third-party plugins no supported way to do that, so the plugin
+calls the storage service's public `detachEntered(entry)` and runs a durability barrier before
+touching any file:
+
+```
+release the session → stop its work → wait for it to settle → flush barrier → remove files
+```
+
+Neither order may be swapped: **release before stopping**, or the stopped session wakes its agent to
+consume the killed job's result and can even start new work — which would outlive the deletion as an
+orphan; **release before removing files**, or the write handle recreates the log. When the release
+credential is unavailable (a different DSH version), the plugin degrades to refusing and asking you
+to switch sessions — never a half-deleted state.
+
+> Deleting the session the main area is showing clears that view (the same thing the built-in
+> archive does for the current session), so you never sit on a conversation that no longer exists.
+
+### Update notice
+
+The plugin periodically asks the registry (official npm first, npmmirror as fallback) whether a
+newer version exists. It **only reports**: a dismissible notice appears in the bottom-right corner
+and nothing is replaced until you click **Update**, which installs through the profile's own plugin
+manager. Replacing an installed package needs a restart to load a fresh Host module generation, so
+the notice says so.
+
+The package name comes from the plugin's own `package.json`, so it works with no configuration;
+`updatePackageName` only matters if you deploy it under an alias.
+
+### How it works
+
+| Half | File | Responsibility |
+|---|---|---|
+| Host | `index.js` | six exact Fetch routes inside the `/api` authentication fence: `session-delete.delete` / `.stop` / `.update-state` / `.install-update` / `.client-ready` / `.status` |
+| Client | `client.js` | two menu rows and one `shell.overlay` entry (confirmations + update notice), bilingual, following the UI language |
+
+The browser half talks to the Host half same-origin; the browser session carries the credentials.
+
+### Compatibility
+
+- verified against DSH **0.2.0-rc.2** (DeepSeek Harness Desktop)
+- needs `connection` / `sessionPersistence` / `workspaceRegistry` in the composition (the Web
+  profile provides all three)
+- zero dependencies, no build step
+
+### Troubleshooting
+
+The plugin appends one line per event to `$DSH_HOME/plugin-session-remove.log`:
+
+```
+host half active (build r5-unified@1.0.0, 6 routes, update mode notify)
+client half mounted (features=stop,delete,update+menu=sidebar.workspaces.session.menu.item,overlay=shell.overlay)
+update check: current 1.0.0, latest 1.0.1 (update available)
+stop session-…: asked job (settled: true)
+released session-… from the live store
+deleted session-… (session-dir:…, projection-cache)
+refused session-…: session-held
+```
+
+- no `client half mounted` → the page half did not load (check that the plugin is enabled and the
+  page was refreshed)
+- `refused <id>: <code>` → the Host refused; the codes are described under Safety boundaries
+- install refusing with `declares no dsh.bundle` → see the registry note under Install
+
+### Known limitations
+
+- **Deletion is permanent**: no trash, no undo.
+- Attachments are content-addressed and deduplicated; they are not collected per session.
+- Deleting the session that is open in the UI releases it first (the main area returns to its empty
+  state).
+- Stopping discards queued input — that is the semantics of the official stop path it reuses.
+- An update needs a restart; the old Host module stays in memory until then.
+
+### Development
+
+Architecture, configuration, tests and the release flow live in
+[DEVELOPING.md](https://github.com/BG0EXM/dsh-session-remove/blob/main/DEVELOPING.md) (Chinese).
+
+---
 
 ## License
 

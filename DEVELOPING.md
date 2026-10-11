@@ -1,5 +1,9 @@
 # DEVELOPING — dsh-session-remove
 
+> **English summary** — Architecture, design decisions, configuration, tests and the release flow
+> for this plugin. The user-facing documentation is [README.md](README.md) (中文 / English);
+> publishing steps are in [PUBLISH.md](PUBLISH.md).
+
 面向维护者：结构、设计取舍、配置项、测试与发布流程。
 用户文档在 [README.md](README.md)，发布步骤在 [PUBLISH.md](PUBLISH.md)。
 
