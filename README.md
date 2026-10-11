@@ -150,10 +150,6 @@ refused session-…: session-held
 - 「停止」会丢弃排队中的输入，这是它所复用的官方停止路径的语义。
 - 更新需要重启才生效；旧版本的宿主模块会一直留在内存里直到重启。
 
-### 开发
-
-架构说明、配置项、测试与发布流程见 [DEVELOPING.md](https://github.com/BG0EXM/dsh-session-remove/blob/main/DEVELOPING.md)。
-
 ---
 
 <a id="english"></a>
@@ -317,11 +313,6 @@ refused session-…: session-held
   state).
 - Stopping discards queued input — that is the semantics of the official stop path it reuses.
 - An update needs a restart; the old Host module stays in memory until then.
-
-### Development
-
-Architecture, configuration, tests and the release flow live in
-[DEVELOPING.md](https://github.com/BG0EXM/dsh-session-remove/blob/main/DEVELOPING.md) (Chinese).
 
 ---
 
