@@ -1,9 +1,29 @@
 {
   "name": "dsh-session-remove",
   "version": "1.0.3",
-  "private": true,
   "description": "Stop or permanently delete DeepSeek Harness sessions from the sidebar session menu: cancels running turns, subagents, background jobs and reminders, then removes the log, projection cache and workspace record.",
   "type": "module",
+  "license": "MIT",
+  "author": "bg0exm",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BG0EXM/dsh-session-remove.git"
+  },
+  "homepage": "https://github.com/BG0EXM/dsh-session-remove#readme",
+  "bugs": {
+    "url": "https://github.com/BG0EXM/dsh-session-remove/issues"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "cordis",
+    "session",
+    "delete"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
   "icon": "./icon.svg",
   "exports": {
     ".": "./index.js",
@@ -13,6 +33,7 @@
   },
   "files": [
     "README.md",
+    "LICENSE",
     "index.js",
     "client.js",
     "cordis.patch.yml",
@@ -27,5 +48,8 @@
       "platform": "web",
       "immediately": true
     }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh": ">=0.2.0-rc.2 <0.3.0"
   }
 }
