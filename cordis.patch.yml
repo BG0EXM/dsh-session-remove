@@ -1,0 +1,7 @@
+# Bundle patch for dsh-session-remove.
+#
+# One row mounts the Host half (index.js); the same package's `./client` export
+# and `dsh.client` manifest mount the Web half (client.js) into the page.
+- insert:
+    - id: session-remove
+      name: 'dsh-session-remove'
