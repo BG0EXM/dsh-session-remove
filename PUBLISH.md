@@ -55,10 +55,8 @@ node scripts/build-publish.mjs \
   --dsh-peer ">=0.2.0-rc.2 <0.3.0"
 ```
 
-发布稿的 README 来自模板 [`README.publish.md`](README.publish.md)：脚本会把
-`{{name}}` / `{{repo}}` / `{{author}}` / `{{version}}` 渲染成实际值再写进产物，
-所以用户看到的是「从 npm 装」的说明，而不是本机的绝对路径。源码目录里那份
-[`README.md`](README.md) 是开发/使用说明，不参与发布。
+[`README.md`](README.md) 在仓库和 npm 页面是**同一份**（原样复制进产物），
+避免两处文档漂移；面向维护者的内容在 [`DEVELOPING.md`](DEVELOPING.md)。
 
 脚本会做四件校验：包名符合 npm 规则、与源码名不同、**npm 上没被占用**（可 `--force` 跳过）、
 以及 `exports["./client"]` 与 `cordis.patch.yml` 在产物里真实存在。生成的包不含

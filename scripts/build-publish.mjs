@@ -38,10 +38,7 @@ const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const TESTED_DSH_RANGE = ">=0.2.0-rc.2 <0.3.0";
 
 /** Files copied verbatim into the published package. */
-const SHIPPED = ["index.js", "client.js", "cordis.patch.yml", "icon.svg"];
-
-/** User-facing README template; placeholders are filled per published name. */
-const README_TEMPLATE = "README.publish.md";
+const SHIPPED = ["index.js", "client.js", "cordis.patch.yml", "icon.svg", "README.md"];
 
 function parseArgs(argv) {
   const args = { license: true, registryCheck: true, force: false, dryRun: false };
@@ -69,12 +66,19 @@ function parseArgs(argv) {
   return args;
 }
 
-/** Ask the public registry whether a name is already published. */
-async function registryHas(name) {
+/**
+ * Ask the public registry what this name already holds.
+ * @param name - the package name to look up.
+ * @returns `{ exists, versions }`, or undefined when the registry is unreachable.
+ */
+async function registryState(name) {
   const url = `https://registry.npmjs.org/${name.startsWith("@") ? name.replace("/", "%2F") : name}`;
   try {
-    const response = await fetch(url, { method: "HEAD" });
-    return response.status === 200;
+    const response = await fetch(url, { headers: { accept: "application/json" } });
+    if (response.status === 404) return { exists: false, versions: [] };
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const body = await response.json();
+    return { exists: true, versions: Object.keys(body?.versions ?? {}) };
   } catch (error) {
     console.warn(`warn: could not reach the npm registry (${error.message}); skipping the name check`);
     return undefined;
@@ -107,9 +111,14 @@ async function main() {
   if (args.repo === undefined) console.warn("warn: no --repo given; the published manifest will carry no repository/homepage/bugs");
 
   if (args.registryCheck && !args.force) {
-    const taken = await registryHas(args.name);
-    if (taken === true) throw new Error(`"${args.name}" is already published on npm; pick another name or pass --force`);
-    if (taken === false) console.log(`registry: "${args.name}" is free`);
+    const state = await registryState(args.name);
+    if (state?.exists === false) console.log(`registry: "${args.name}" is free`);
+    /* A published name is normal for every release after the first; only the exact
+       version is a hard conflict, because npm will refuse to overwrite it. */
+    else if (state?.exists === true) {
+      if (state.versions.includes(version)) throw new Error(`npm already has ${args.name}@${version}; bump the version (or pass --force)`);
+      console.log(`registry: "${args.name}" exists with ${state.versions.length} version(s); ${version} is new`);
+    }
   }
 
   const outRoot = resolve(args.out ?? join(PACKAGE_DIR, "dist"));
@@ -158,14 +167,6 @@ async function main() {
     const year = String(new Date().getFullYear());
     await writeFile(join(outDir, "LICENSE"), `MIT License\n\nCopyright (c) ${year} ${holder}\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the "Software"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n`, "utf8");
   }
-  const template = await readFile(join(PACKAGE_DIR, README_TEMPLATE), "utf8");
-  const readme = template
-    .replaceAll("{{name}}", manifest.name)
-    .replaceAll("{{version}}", manifest.version)
-    .replaceAll("{{repo}}", args.repo ?? "")
-    .replaceAll("{{author}}", args.author ?? "");
-  await writeFile(join(outDir, "README.md"), readme, "utf8");
-
   await writeFile(join(outDir, "package.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 
   /* The bundle contract: the module resolves, both halves exist, nothing private. */
