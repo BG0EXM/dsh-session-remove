@@ -150,6 +150,21 @@ refused session-…: session-held
 - 「停止」会丢弃排队中的输入，这是它所复用的官方停止路径的语义。
 - 更新需要重启才生效；旧版本的宿主模块会一直留在内存里直到重启。
 
+### 测试
+
+零依赖，用 Node 内置的测试运行器（Node ≥ 22）：
+
+```sh
+node --test test/host.test.mjs test/client.test.mjs     # 41 项
+```
+
+`test/host.test.mjs`（28 项）用模拟的 `ctx` 驱动真实的 `apply()`：删除与停止的完整链路、
+释放顺序、拒绝码、路径护栏、更新检查的每条分支与 semver 排序。
+`test/client.test.mjs`（13 项）用最小 React 运行时真实渲染两个菜单项、两个确认框与更新提示，
+模拟点击并核对请求载荷与文案。
+
+测试**不会**进入 npm 包（`files` 白名单里没有 `test/`），只随仓库分发。
+
 ---
 
 <a id="english"></a>
@@ -313,6 +328,24 @@ refused session-…: session-held
   state).
 - Stopping discards queued input — that is the semantics of the official stop path it reuses.
 - An update needs a restart; the old Host module stays in memory until then.
+
+### Tests
+
+No dependencies — Node's built-in test runner (Node ≥ 22):
+
+```sh
+node --test test/host.test.mjs test/client.test.mjs     # 41 tests
+```
+
+`test/host.test.mjs` (28) drives the real `apply()` with a mocked context: the whole
+delete and stop pipeline, the release ordering, every refusal code, the path guard, each
+branch of the update check and the semver ordering table.
+`test/client.test.mjs` (13) renders the two menu rows, both confirmation dialogs and the
+update notice with a minimal React runtime, then simulates clicks and checks the request
+payloads and copy.
+
+The tests are **not** part of the npm package (`test/` is not in the `files` whitelist);
+they ship with the repository only.
 
 ---
 
