@@ -1,6 +1,6 @@
 {
   "name": "dsh-session-remove",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Stop or permanently delete DeepSeek Harness sessions from the sidebar session menu: cancels running turns, subagents, background jobs and reminders, then removes the log, projection cache and workspace record.",
   "type": "module",
