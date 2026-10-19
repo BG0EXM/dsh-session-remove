@@ -4,11 +4,14 @@
  * Three surfaces, all fetched from the Host half's `/api/session-delete.*`
  * routes:
  *
- * - **停止会话…** (menu order 450) — asks the Host to run the registry's
+ * - **停止会话…** (menu order 460) — asks the Host to run the registry's
  *   `workspace/session-stop` admission. It confirms first, because that stop is
  *   the archive-shaped one: it discards queued input.
  * - **删除会话…** (menu order 500) — confirms, deletes, and offers
- *   「停止并删除」 when the Host reports that work is still running.
+ *   「停止并删除」 when the Host reports that work is still running. It asks
+ *   the Host's inspect route what the Session left in its workspace and which
+ *   attachments only it referenced, and offers that extra cleanup as an
+ *   explicit, counted checkbox (policy overridable by row config).
  * - **更新提示** — a dismissible notice while the Host reports a newer release.
  *
  * Shape notes, all verified against the shipped bundle:
@@ -39,12 +42,15 @@ window.__ModuleLoader__.load({
     const OVERLAY_SLOT = "shell.overlay";
     const STOP_PATH = "/api/session-delete.stop";
     const DELETE_PATH = "/api/session-delete.delete";
+    const INSPECT_PATH = "/api/session-delete.inspect";
     const UPDATE_STATE_PATH = "/api/session-delete.update-state";
     const UPDATE_INSTALL_PATH = "/api/session-delete.install-update";
     const CLIENT_READY_PATH = "/api/session-delete.client-ready";
 
-    /** Shipped rows place pin/rename/fork/archive at 100/200/300/400. */
-    const STOP_ORDER = 450;
+    /** Shipped rows place pin/rename/fork/archive at 100/200/300/400; 0.2.1
+        also ships a session-id row at 450, so stop sits after it and before
+        the destructive delete row at 500. */
+    const STOP_ORDER = 460;
     const DELETE_ORDER = 500;
 
     /** A refusal that the delete dialog can answer with 「停止并删除」. */
@@ -65,9 +71,13 @@ window.__ModuleLoader__.load({
         "stop.done": "已请求停止：{kinds}。",
         "stop.idle": "该会话当前没有正在运行的工作。",
         "confirm.title": "删除此会话？",
-        "confirm.desc": "将永久删除“{title}”及其本地数据（对话日志、投影缓存、工作区记录）。此操作无法撤销。",
+        "confirm.desc": "将永久删除“{title}”及其本地数据（对话日志、子代理会话、投影缓存、工作区记录）。此操作无法撤销。",
         "confirm.action": "永久删除",
         "confirm.pending": "正在删除…",
+        "confirm.partial": "会话已删除，但有 {count} 项数据未能清理：{ids}",
+        "confirm.files": "同时删除本会话产生的文件（{files} 个工作区文件、{attachments} 个附件）",
+        "confirm.filesHint": "只删除本会话期间新建的文件；会话之前已存在的文件不会被删除。此操作不可撤销。",
+        "confirm.filesAuto": "将同时删除本会话产生的 {files} 个工作区文件、{attachments} 个附件。",
         "confirm.stopAndDelete": "停止并删除",
         "confirm.stopping": "正在停止它的工作…",
         "cancel": "取消",
@@ -92,9 +102,13 @@ window.__ModuleLoader__.load({
         "stop.done": "Stop requested: {kinds}.",
         "stop.idle": "This session has no running work.",
         "confirm.title": "Delete this session?",
-        "confirm.desc": "“{title}” and its local data (conversation log, projection cache, workspace record) will be permanently deleted. This cannot be undone.",
+        "confirm.desc": "“{title}” and its local data (conversation log, subagent sessions, projection cache, workspace record) will be permanently deleted. This cannot be undone.",
         "confirm.action": "Delete",
         "confirm.pending": "Deleting…",
+        "confirm.partial": "The session was deleted, but {count} item(s) could not be cleaned up: {ids}",
+        "confirm.files": "Also delete the files this session produced ({files} workspace file(s), {attachments} attachment(s))",
+        "confirm.filesHint": "Only files created during this session are removed; files that predate it are kept. This cannot be undone.",
+        "confirm.filesAuto": "The files this session produced ({files} workspace file(s), {attachments} attachment(s)) will also be deleted.",
         "confirm.stopAndDelete": "Stop and delete",
         "confirm.stopping": "Stopping its work…",
         "cancel": "Cancel",
@@ -144,6 +158,11 @@ window.__ModuleLoader__.load({
       ".dsd-description{margin:0;padding:0 24px;font-size:14px;line-height:22px;font-weight:400;color:var(--dsw-alias-label-primary)}",
       ".dsd-status{padding:12px 24px 0;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:18px}",
       ".dsd-error{padding:12px 24px 0;color:var(--dsw-alias-state-error-primary);font-size:12px;line-height:18px}",
+      ".dsd-option{display:flex;align-items:flex-start;gap:8px;padding:12px 24px 0;font-size:13px;line-height:20px;color:var(--dsw-alias-label-primary)}",
+      ".dsd-option input{margin:3px 0 0;flex:none}",
+      ".dsd-option-text{display:flex;flex-direction:column;gap:4px}",
+      ".dsd-option-hint{font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary)}",
+      ".dsd-option-auto{padding:12px 24px 0;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary)}",
       ".dsd-footer{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:0 24px}",
       ".dsd-button{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;gap:4px;height:36px;",
       "padding:0 14px;border:none;border-radius:var(--dsw-radius-md);cursor:pointer;font-size:14px;line-height:22px;",
@@ -420,6 +439,10 @@ window.__ModuleLoader__.load({
       const [error, setError] = React.useState(null);
       const [errorCode, setErrorCode] = React.useState(null);
       const [result, setResult] = React.useState(null);
+      const [fileCandidates, setFileCandidates] = React.useState(null);
+      const [includeFiles, setIncludeFiles] = React.useState(false);
+      const includeFilesRef = React.useRef(false);
+      includeFilesRef.current = includeFiles;
       busyRef.current = busy;
 
       const close = () => {
@@ -466,6 +489,25 @@ window.__ModuleLoader__.load({
         };
       }, []);
 
+      /* Ask the Host what the Session left outside its log directory, so the
+         destructive file cleanup is an explicit, counted choice. */
+      React.useEffect(() => {
+        if (request.kind !== "delete") return undefined;
+        let cancelled = false;
+        callHost(INSPECT_PATH, { sessionId: request.sessionId })
+          .then((payload) => {
+            if (cancelled || payload?.ok !== true) return;
+            setFileCandidates(payload);
+            if (payload.mode === "always" && (payload.files?.count ?? 0) + (payload.attachments?.count ?? 0) > 0) setIncludeFiles(true);
+          })
+          .catch(() => {
+            /* the dialog still deletes the session data when inspection fails */
+          });
+        return () => {
+          cancelled = true;
+        };
+      }, []);
+
       /** Report one Host refusal, keeping the pieces the dialog can act on. */
       const fail = (payload) => {
         setBusy(false);
@@ -501,10 +543,23 @@ window.__ModuleLoader__.load({
         setStopPhase(stopActivity);
         setError(null);
         setErrorCode(null);
-        callHost(DELETE_PATH, { sessionId: request.sessionId, stopActivity })
+        callHost(DELETE_PATH, { sessionId: request.sessionId, stopActivity, deleteFiles: includeFilesRef.current })
           .then((payload) => {
             if (payload.ok === true) {
               leaveDeletedView(request.sessionId);
+              /* A parent whose subagent Sessions could not be removed is still
+                 a successful deletion, but the dialog must say so: those files
+                 are no longer reachable from the UI. */
+              const warnings = Array.isArray(payload.warnings) ? payload.warnings : [];
+              if (warnings.length > 0) {
+                setBusy(false);
+                setStopPhase(false);
+                setResult(t("confirm.partial", {
+                  count: warnings.length,
+                  ids: warnings.map((warning) => (typeof warning?.sessionId === "string" ? warning.sessionId : t("confirm.files"))).join("、")
+                }));
+                return;
+              }
               setPending(null);
               return;
             }
@@ -523,6 +578,11 @@ window.__ModuleLoader__.load({
         : stopPhase
           ? t("confirm.stopping")
           : t("confirm.pending");
+      const fileFiles = fileCandidates?.files?.count ?? 0;
+      const fileAttachments = fileCandidates?.attachments?.count ?? 0;
+      const fileTotal = fileFiles + fileAttachments;
+      const showFileOption = stopping === false && result === null && fileCandidates !== null && fileCandidates.mode === "confirm" && fileTotal > 0;
+      const showFileAuto = stopping === false && result === null && fileCandidates !== null && fileCandidates.mode === "always" && fileTotal > 0;
 
       return h(
         React.Fragment,
@@ -556,6 +616,25 @@ window.__ModuleLoader__.load({
                 )
               ),
               result === null ? h("p", { className: "dsd-description" }, description) : h("p", { className: "dsd-description" }, result),
+              showFileOption
+                ? h(
+                    "label",
+                    { className: "dsd-option" },
+                    h("input", {
+                      type: "checkbox",
+                      checked: includeFiles,
+                      disabled: busy,
+                      onChange: (event) => setIncludeFiles(event.target.checked)
+                    }),
+                    h(
+                      "span",
+                      { className: "dsd-option-text" },
+                      h("span", null, t("confirm.files", { files: fileFiles, attachments: fileAttachments })),
+                      h("span", { className: "dsd-option-hint" }, t("confirm.filesHint"))
+                    )
+                  )
+                : null,
+              showFileAuto ? h("div", { className: "dsd-option-auto" }, t("confirm.filesAuto", { files: fileFiles, attachments: fileAttachments })) : null,
               busy ? h("div", { className: "dsd-status", role: "status" }, busyText) : null,
               error === null ? null : h("div", { className: "dsd-error", role: "alert" }, error)
             ),

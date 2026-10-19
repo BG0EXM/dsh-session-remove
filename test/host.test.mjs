@@ -28,6 +28,7 @@ function nextVersion(version) {
 
 const SESSION_ID = "session-11111111-2222-3333-4444-555555555555";
 const OTHER_ID = "session-99999999-8888-7777-6666-555555555555";
+const SUB_ID = "session-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 
 const DELETE_PATH = "/api/session-delete.delete";
 const STOP_PATH = "/api/session-delete.stop";
@@ -35,6 +36,7 @@ const UPDATE_STATE_PATH = "/api/session-delete.update-state";
 const UPDATE_INSTALL_PATH = "/api/session-delete.install-update";
 const CLIENT_READY_PATH = "/api/session-delete.client-ready";
 const STATUS_PATH = "/api/session-delete.status";
+const INSPECT_PATH = "/api/session-delete.inspect";
 
 /**
  * Build a mocked Host context over a real temporary Session directory.
@@ -49,6 +51,13 @@ async function harness(options = {}) {
   const logPath = join(sessionDir, "session.v4.jsonl.zstd");
   await writeFile(logPath, "log");
   await writeFile(join(sessionDir, "session.lock"), "");
+
+  const subagents = options.subagents ?? [];
+  for (const subagent of subagents) {
+    const dir = join(project, subagent.id);
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, "session.v4.jsonl.zstd"), "log");
+  }
 
   const observed = {
     emitted: [],
@@ -140,13 +149,27 @@ async function harness(options = {}) {
             }
           },
     sessionPersistence: {
+      list: async () => {
+        if (options.listThrows === true) throw new Error("listing failed");
+        return [
+          { header: { id: SESSION_ID, cwd: project, ...(options.header ?? {}) } },
+          ...subagents.map((subagent) => ({
+            header: {
+              id: subagent.id,
+              cwd: project,
+              origin: "subagent",
+              parentSession: subagent.parentSession ?? SESSION_ID
+            }
+          }))
+        ];
+      },
       flush: async () => {
         observed.flushed += 1;
       },
       stat: async (id) => {
         if (options.missing === true) return undefined;
         if (id !== SESSION_ID) return undefined;
-        return { header: { id, cwd: project } };
+        return { header: { id, cwd: project, ...(options.header ?? {}) } };
       },
       locate: (meta) => {
         if (options.unsafeLocation === true) return { kind: "jsonl", path: join(root, "elsewhere", "session.v4.jsonl.zstd") };
@@ -211,7 +234,7 @@ test("registers every Host route", async () => {
   const h = await harness();
   assert.deepEqual(
     [...h.routes.keys()].sort(),
-    [DELETE_PATH, STOP_PATH, UPDATE_STATE_PATH, UPDATE_INSTALL_PATH, CLIENT_READY_PATH, STATUS_PATH].sort()
+    [DELETE_PATH, INSPECT_PATH, STOP_PATH, UPDATE_STATE_PATH, UPDATE_INSTALL_PATH, CLIENT_READY_PATH, STATUS_PATH].sort()
   );
   await h.close();
 });
@@ -563,7 +586,7 @@ test("the status route reports plugin identity, update state, and history", asyn
   )).json();
 
   assert.equal(body.plugin, "dsh-session-remove");
-  assert.equal(body.routes.length, 6);
+  assert.equal(body.routes.length, 7);
   assert.equal(body.update.mode, "notify");
   assert.ok(body.history.some((entry) => entry.line.includes(`deleted ${SESSION_ID}`)));
   await h.close();
@@ -575,5 +598,84 @@ test("update checks can be turned off", async () => {
   const body = await (await h.call(STATUS_PATH, undefined, "GET")).json();
   assert.equal(body.update.mode, "off");
   assert.ok(h.observed.logged.some((line) => line.includes("update checks disabled")));
+  await h.close();
+});
+
+/* ------------------------------------------------------- 1.0.5 behaviour */
+
+test("the inspect route reports the workspace files a session created", async () => {
+  const h = await harness({ header: { createdAt: Date.now() - 60_000 } });
+  await writeFile(join(h.project, "note.txt"), "hello");
+  const body = await (await h.call(INSPECT_PATH, { sessionId: SESSION_ID })).json();
+
+  assert.equal(body.ok, true);
+  assert.equal(body.mode, "confirm");
+  assert.equal(body.files.count, 1);
+  assert.deepEqual(body.files.sample, ["note.txt"]);
+  assert.equal(body.attachments.count, 0);
+  await h.close();
+});
+
+test("deleteFiles: true removes the workspace file the session created", async () => {
+  const h = await harness({ header: { createdAt: Date.now() - 60_000 } });
+  const note = join(h.project, "note.txt");
+  await writeFile(note, "hello");
+  const response = await h.call(DELETE_PATH, { sessionId: SESSION_ID, deleteFiles: true });
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(body.sessionFiles.workspaceFiles, ["note.txt"]);
+  assert.equal(existsSync(note), false);
+  await h.close();
+});
+
+test("deleteSessionFiles: off leaves workspace files alone", async () => {
+  const h = await harness({
+    header: { createdAt: Date.now() - 60_000 },
+    config: { deleteSessionFiles: "off" }
+  });
+  const note = join(h.project, "note.txt");
+  await writeFile(note, "hello");
+  const inspect = await (await h.call(INSPECT_PATH, { sessionId: SESSION_ID })).json();
+  assert.equal(inspect.files.count, 0);
+
+  const response = await h.call(DELETE_PATH, { sessionId: SESSION_ID, deleteFiles: true });
+  assert.equal(response.status, 200);
+  assert.equal(existsSync(note), true);
+  await h.close();
+});
+
+test("deleting a session removes its subagent sessions and cache rows", async () => {
+  const h = await harness({ subagents: [{ id: SUB_ID }] });
+  const subDir = join(h.project, SUB_ID);
+  const response = await h.call(DELETE_PATH, { sessionId: SESSION_ID });
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(body.subagentSessions, [SUB_ID]);
+  assert.equal(existsSync(subDir), false, "the subagent log directory is gone");
+  assert.ok(h.observed.cacheDeleted.includes(SUB_ID), "the subagent projection row is gone");
+  await h.close();
+});
+
+test("deleteSubagentSessions: false keeps the child session", async () => {
+  const h = await harness({ subagents: [{ id: SUB_ID }], config: { deleteSubagentSessions: false } });
+  const subDir = join(h.project, SUB_ID);
+  const body = await (await h.call(DELETE_PATH, { sessionId: SESSION_ID })).json();
+
+  assert.equal(body.ok, true);
+  assert.deepEqual(body.subagentSessions, []);
+  assert.equal(existsSync(subDir), true);
+  await h.close();
+});
+
+test("a failed session listing refuses the delete before touching files", async () => {
+  const h = await harness({ listThrows: true });
+  const response = await h.call(DELETE_PATH, { sessionId: SESSION_ID });
+  const body = await response.json();
+
+  assert.equal(response.status, 409);
+  assert.equal(body.code, "subagent-scan-failed");
+  assert.equal(existsSync(h.logPath), true);
   await h.close();
 });

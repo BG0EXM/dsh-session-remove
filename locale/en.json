@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Stop & Delete Sessions",
-    "description": "Stop or permanently delete sessions from the sidebar session menu: cancels running turns, subagents, background jobs and reminders, then removes the conversation log, projection cache and workspace record; notices new releases."
+    "description": "Stop or permanently delete sessions from the sidebar session menu: cancels running turns, subagents, background jobs and reminders, then removes the conversation log, subagent session logs, projection cache and workspace record, with optional cleanup of session-produced workspace files and orphaned attachments; notices new releases."
   }
 }

@@ -280,7 +280,7 @@ test("apply registers both dictionaries, both menu rows, and the overlay", async
 
   const menus = registered.slots.filter(([options]) => options.name === MENU_SLOT);
   assert.deepEqual(menus.map(([options]) => [options.id, options.order]), [
-    ["session-delete-stop", 450],
+    ["session-delete-stop", 460],
     ["session-delete", 500]
   ]);
   assert.ok(menus.every(([options]) => options.locale === "session-delete"));
@@ -352,7 +352,7 @@ test("the delete dialog deletes and closes on success", async () => {
   find(dialog, (node) => node.type === "button" && text(node) === "永久删除").props.onClick();
   await tick();
   assert.deepEqual(calls.filter((call) => call.path === DELETE_PATH), [
-    { path: DELETE_PATH, method: "POST", body: { sessionId: "session-abc", stopActivity: false } }
+    { path: DELETE_PATH, method: "POST", body: { sessionId: "session-abc", stopActivity: false, deleteFiles: false } }
   ]);
   assert.ok(isEmpty(render(React.createElement(overlay, { t }))), "the dialog closes after success");
 });
@@ -380,8 +380,8 @@ test("a running session's refusal offers 「停止并删除」, which retries wi
   stopAndDelete.props.onClick();
   await tick();
   assert.deepEqual(calls.filter((call) => call.path === DELETE_PATH).map((call) => call.body), [
-    { sessionId: "session-abc", stopActivity: false },
-    { sessionId: "session-abc", stopActivity: true }
+    { sessionId: "session-abc", stopActivity: false, deleteFiles: false },
+    { sessionId: "session-abc", stopActivity: true, deleteFiles: false }
   ]);
   assert.ok(isEmpty(render(React.createElement(overlay, { t }))), "the dialog closes once it works");
 });
